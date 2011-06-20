@@ -101,7 +101,7 @@ namespace Catch
         ()
         const
         {
-            return m_status != TestedLeaf;
+            return (m_status == UntestedLeaf || hasUntestedSections());
         }
         
         ///////////////////////////////////////////////////////////////////////

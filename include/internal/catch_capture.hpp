@@ -186,6 +186,25 @@ inline std::string toString
 )
 {
     std::ostringstream oss;
+	std::ios::fmtflags format_flags = oss.flags();
+	format_flags &= ~std::ios::floatfield;
+	oss.flags( format_flags );
+	oss.precision(30);
+    oss << value;
+    return oss.str();
+}   
+
+///////////////////////////////////////////////////////////////////////////////
+inline std::string toString
+(
+    const float value 
+)
+{
+    std::ostringstream oss;
+	std::ios::fmtflags format_flags = oss.flags();
+	format_flags &= ~std::ios::floatfield;
+	oss.flags( format_flags );
+	oss.precision(30);
     oss << value;
     return oss.str();
 }    
