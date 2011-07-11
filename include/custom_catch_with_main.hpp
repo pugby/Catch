@@ -1,5 +1,5 @@
-#include "catch2/catch_runner.hpp"
-#include "catch2/catch.hpp"
+#include "catch_runner.hpp"
+#include "catch.hpp"
 #include <cassert>
 
 #ifdef _MSC_VER
