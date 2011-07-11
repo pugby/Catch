@@ -566,6 +566,17 @@ public:
     }
 
     ///////////////////////////////////////////////////////////////////////////
+    Expression<const char*> operator->*
+    (
+        const char* operand
+     )
+    {
+        Expression<const char*> expr( m_result, operand );
+        
+        return expr;
+    }
+    
+    ///////////////////////////////////////////////////////////////////////////
     template<typename T>
     PtrExpression<T> operator->*
     (
@@ -677,16 +688,16 @@ inline bool isTrue
 
 ///////////////////////////////////////////////////////////////////////////////
 #define INTERNAL_CATCH_ACCEPT_EXPR( expr, stopOnFailure ) \
-    if( Catch::ResultAction::Value action = Catch::Hub::getResultCapture().acceptExpression( expr )  ) \
+    if( Catch::ResultAction::Value internal_catch_action = Catch::Hub::getResultCapture().acceptExpression( expr )  ) \
     { \
-        if( action == Catch::ResultAction::DebugFailed ) BreakIntoDebugger(); \
+        if( internal_catch_action == Catch::ResultAction::DebugFailed ) BreakIntoDebugger(); \
         if( Catch::isTrue( stopOnFailure ) ) throw Catch::TestFailureException(); \
     }
 
 ///////////////////////////////////////////////////////////////////////////////
 #define INTERNAL_CATCH_TEST( expr, isNot, stopOnFailure, macroName ) \
     INTERNAL_CATCH_ACCEPT_EXPR( ( Catch::ResultBuilder( __FILE__, __LINE__, macroName, #expr, isNot )->*expr ), stopOnFailure ); \
-    if( Catch::isTrue( false ) ){ bool dummyResult = ( expr ); Catch::isTrue( dummyResult ); }
+    if( Catch::isTrue( false ) ){ bool internal_catch_dummyResult = ( expr ); Catch::isTrue( internal_catch_dummyResult ); }
 
 ///////////////////////////////////////////////////////////////////////////////
 #define INTERNAL_CATCH_NO_THROW( expr, stopOnFailure, macroName ) \

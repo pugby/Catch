@@ -156,7 +156,7 @@ namespace Catch
             {
                 m_config.stream() << "[End of section: '" << sectionName << "'. ";
                 ReportCounts( succeeded, failed );
-                m_config.stream() << "]\n" << std::endl;
+                m_config.stream() << "]" << std::endl;
             }
             m_sectionSpans.pop_back();
         }

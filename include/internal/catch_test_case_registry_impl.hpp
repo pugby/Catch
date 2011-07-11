@@ -18,10 +18,28 @@
 #include <set>
 #include <sstream>
 
+#ifdef _MSC_VER
+	#include "Windows.h"
+	#include <signal.h>
+	#include <crtdbg.h>
+	#include <float.h>
+#else
+	#include <signal.h>
+	#include <setjmp.h>
+	#include <pthread.h>	// MUST LINK -lpthread
+#endif
+
 #include <iostream> // !TBD DBG
 namespace Catch
 {
-    class TestRegistry : public ITestCaseRegistry
+	void SignalHandler(int sig);
+	#ifdef _MSC_VER
+	DWORD WINAPI RunTestInThread(LPVOID lpParam);
+	#else
+	void * RunTestInThread(void *lpParam);
+	#endif
+
+	class TestRegistry : public ITestCaseRegistry
     {
     public:
         ///////////////////////////////////////////////////////////////////////////
@@ -102,12 +120,45 @@ namespace Catch
         {}
         
         ///////////////////////////////////////////////////////////////////////////
-        virtual void invoke
-        ()
-        const
-        {
-            m_fun();
-        }
+		virtual void invoke
+		()
+		const
+		{
+			#ifdef _MSC_VER
+				// Invoke the test case in a worker thread for crash tolerance
+				DWORD  result   = 0;
+				DWORD  threadId = 0;
+				HANDLE worker   = CreateThread(NULL,0,RunTestInThread,m_fun,0,&threadId);
+			
+				if(WaitForMultipleObjects(1,&worker,TRUE,INFINITE) == WAIT_OBJECT_0)
+				{
+					GetExitCodeThread(worker,&result);
+				}
+				else
+				{
+					result = FreeFunctionTestCase::EXCEPTION;
+				}			
+			#else
+				// Invoke the test case in a worker thread for crash tolerance
+				pthread_t worker;
+				void *    retVal;
+				pthread_create( &worker, NULL, RunTestInThread, (void*)m_fun );
+				pthread_join( worker, &retVal);
+				unsigned int result = *((unsigned int*)retVal);			
+			#endif
+
+			switch(result)
+			{
+			case FreeFunctionTestCase::EXCEPTION:
+				throw "Test case aborted due to unhandled exception.";
+				break;
+			case FreeFunctionTestCase::CRASH:
+				throw "Test case aborted due to suspected crash.";
+				break;
+			default:
+				break;
+			}
+		}  
         
         ///////////////////////////////////////////////////////////////////////////
         virtual ITestCase* clone
@@ -139,9 +190,100 @@ namespace Catch
             return ffOther && m_fun < ffOther->m_fun;
         }
         
+		static jmp_buf mark;
+		static const unsigned int SUCCESS	= 0U;
+		static const unsigned int EXCEPTION = 1U;
+		static const unsigned int CRASH		= 2U;
     private:
-        TestFunction m_fun;
+        TestFunction m_fun;		
     };
+	
+	void SignalHandler(int sig)
+	{
+		switch(sig)
+		{
+		case SIGFPE:
+			#ifdef _MSC_VER
+			_fpreset();
+			#endif
+			break;
+		default:
+			break;
+		}
+
+		signal(sig,SIG_DFL);
+		
+		#ifdef _MSC_VER
+			DWORD error = FreeFunctionTestCase::CRASH;
+			ExitThread(error);
+		#else
+			unsigned int * error = const_cast<unsigned int *>(&FreeFunctionTestCase::CRASH);
+			pthread_exit(error);
+		#endif
+	}
+
+	#ifdef _MSC_VER
+	DWORD WINAPI RunTestInThread(LPVOID lpParam)
+	{
+		DWORD error = FreeFunctionTestCase::SUCCESS;
+
+		signal(SIGSEGV,SignalHandler);
+		signal(SIGFPE,SignalHandler);
+		signal(SIGINT,SignalHandler);
+		signal(SIGILL,SignalHandler);
+		signal(SIGABRT,SignalHandler);
+		try
+		{
+			((Catch::TestFunction)lpParam)();
+		}
+		catch(...)
+		{
+			// NOTE: CHECK_THROWS, REQUIRE_THROWS, etc. will still work.  This just consumes SEH crashes, 
+			// and unexpected exceptions that could prevent the test suite from continuing.
+			// TODO: pass exception information to calling thread
+			error = FreeFunctionTestCase::EXCEPTION;
+		}
+		signal(SIGSEGV,SIG_DFL);
+		signal(SIGFPE,SIG_DFL);
+		signal(SIGINT,SIG_DFL);
+		signal(SIGILL,SIG_DFL);
+		signal(SIGABRT,SIG_DFL);
+		return error;
+	}
+	#else
+	void * RunTestInThread(void *lpParam)
+	{
+		unsigned int * error = const_cast<unsigned int *>(&FreeFunctionTestCase::SUCCESS);
+
+		signal(SIGSEGV,SignalHandler);
+		signal(SIGFPE,SignalHandler);
+		signal(SIGINT,SignalHandler);
+		signal(SIGILL,SignalHandler);
+		signal(SIGABRT,SignalHandler);
+		try
+		{
+			((Catch::TestFunction)lpParam)();
+		}
+		catch(...)
+		{
+			// NOTE: CHECK_THROWS, REQUIRE_THROWS, etc. will still work.  This just consumes SEH crashes, 
+			// and unexpected exceptions that could prevent the test suite from continuing.
+			// TODO: pass exception information to calling thread
+			error = const_cast<unsigned int *>(&FreeFunctionTestCase::EXCEPTION);
+		}
+		signal(SIGSEGV,SIG_DFL);
+		signal(SIGFPE,SIG_DFL);
+		signal(SIGINT,SIG_DFL);
+		signal(SIGILL,SIG_DFL);
+		signal(SIGABRT,SIG_DFL);
+		return error;
+	}
+	#endif
+	
+	jmp_buf FreeFunctionTestCase::mark;
+	const unsigned int FreeFunctionTestCase::SUCCESS;
+	const unsigned int FreeFunctionTestCase::EXCEPTION;
+	const unsigned int FreeFunctionTestCase::CRASH;
         
     ///////////////////////////////////////////////////////////////////////////
     ///////////////////////////////////////////////////////////////////////////
