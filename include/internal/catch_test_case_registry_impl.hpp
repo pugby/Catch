@@ -25,7 +25,6 @@
 	#include <float.h>
 #else
 	#include <signal.h>
-	#include <setjmp.h>
 	#include <pthread.h>	// MUST LINK -lpthread
 #endif
 
@@ -190,7 +189,6 @@ namespace Catch
             return ffOther && m_fun < ffOther->m_fun;
         }
         
-		static jmp_buf mark;
 		static const unsigned int SUCCESS	= 0U;
 		static const unsigned int EXCEPTION = 1U;
 		static const unsigned int CRASH		= 2U;
@@ -280,7 +278,6 @@ namespace Catch
 	}
 	#endif
 	
-	jmp_buf FreeFunctionTestCase::mark;
 	const unsigned int FreeFunctionTestCase::SUCCESS;
 	const unsigned int FreeFunctionTestCase::EXCEPTION;
 	const unsigned int FreeFunctionTestCase::CRASH;
